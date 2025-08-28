@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Server Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .btn-role-primary {
+            background-color: #003366; /* Darkest Cyan */
+            border-color: #003366;
+            color: #fff;
+        }
+        .btn-role-secondary {
+            background-color: #0066CC; /* Darker Cyan */
+            border-color: #0066CC;
+            color: #fff;
+        }
+        .btn-role-tertiary {
+            background-color: #3399FF; /* Medium Cyan */
+            border-color: #3399FF;
+            color: #fff;
+        }
+        .btn-role-client {
+            background-color: #66CCFF; /* Light Cyan */
+            border-color: #66CCFF;
+            color: #fff;
+        }
+    </style>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="{{ url_for('index') }}">C2 Control Panel</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('server_management') }}">Server Management</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container-fluid">
+        <h2 class="mt-4">Server Management</h2>
+
+        <div class="message mt-3" id="message-box" style="display: none;"></div>
+
+        <div class="table-responsive mt-4">
+            <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>IP Address</th>
+                        <th>Port</th>
+                        <th>Current User</th>
+                        <th>Current Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="server-list">
+                    <!-- Server data will be loaded here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_SECRET_KEY = "a_fixed_c2_api_key"; // This should be handled more securely in production!
+        const messageBox = document.getElementById('message-box');
+
+        function showMessage(type, text) {
+            messageBox.style.display = 'block';
+            messageBox.className = 'alert alert-' + (type === 'success' ? 'success' : 'danger') + ' mt-3';
+            messageBox.textContent = text;
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 5000);
+        }
+
+        async function fetchServers() {
+            try {
+                const response = await fetch('/api/discovered_servers');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const servers = await response.json();
+                renderServers(servers);
+            } catch (error) {
+                console.error('Error fetching servers:', error);
+                showMessage('error', 'Failed to fetch servers: ' + error.message);
+            }
+        }
+
+        function renderServers(servers) {
+            const serverListBody = document.getElementById('server-list');
+            serverListBody.innerHTML = ''; // Clear existing list
+
+            if (servers.length === 0) {
+                serverListBody.innerHTML = '<tr><td colspan="4" class="text-center">No servers found.</td></tr>';
+                return;
+            }
+
+            servers.forEach(server => {
+                const row = serverListBody.insertRow();
+                row.insertCell().textContent = server.ip;
+                row.insertCell().textContent = server.port;
+                row.insertCell().textContent = server.user;
+                row.insertCell().textContent = server.role;
+
+                const actionsCell = row.insertCell();
+                const roles = ['primary', 'secondary', 'tertiary', 'client'];
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'btn-group';
+                btnGroup.setAttribute('role', 'group');
+
+                roles.forEach(role => {
+                    const button = document.createElement('button');
+                    button.textContent = `Set ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+                    button.className = `btn btn-sm btn-role-${role}`;
+                    button.onclick = () => setServerRole(server.ip, server.port, role);
+                    btnGroup.appendChild(button);
+                });
+                actionsCell.appendChild(btnGroup);
+            });
+        }
+
+        async function setServerRole(ip_address, port, role) {
+            try {
+                const response = await fetch('/api/admin/set_server_role', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': API_SECRET_KEY
+                    },
+                    body: JSON.stringify({ ip_address, port, role })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('success', data.status);
+                    fetchServers(); // Refresh the list
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error setting server role:', error);
+                showMessage('error', 'Failed to set role: ' + error.message);
+            }
+        }
+
+        // Fetch servers when the page loads
+        document.addEventListener('DOMContentLoaded', fetchServers);
+    </script>
+</body>
+</html>
