@@ -218,6 +218,50 @@ def api_get_servers():
 def api_get_discovered_servers():
     return jsonify(discovery_listener.get_active_servers())
 
+@app.route("/agent/checkin", methods=['POST'])
+def agent_checkin():
+    data = request.json
+    agent_id = data.get('agent_id')
+    hostname = data.get('hostname')
+    current_user = data.get('current_user')
+    ip_address = request.remote_addr
+
+    db = get_db()
+    
+    if not agent_id:
+        agent_id = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO agents (id, hostname, ip_address, username, status, last_seen, current_user) VALUES (?, ?, ?, ?, 'online', CURRENT_TIMESTAMP, ?)",
+            (agent_id, hostname, ip_address, 'agent', current_user)
+        )
+    else:
+        db.execute(
+            "UPDATE agents SET hostname = ?, ip_address = ?, status = 'online', last_seen = CURRENT_TIMESTAMP, current_user = ? WHERE id = ?",
+            (hostname, ip_address, current_user, agent_id)
+        )
+    db.commit()
+
+    # Try to find a queued command
+    command_row = db.execute(
+        "SELECT id, command FROM commands WHERE agent_id = ? AND status = 'queued' ORDER BY created_at ASC LIMIT 1",
+        (agent_id,)
+    ).fetchone()
+
+    command_to_send = "none"
+    if command_row:
+        command_to_send = command_row['command']
+        # For polling agents, we assume success upon sending as they don't have a callback mechanism yet
+        db.execute(
+            "UPDATE commands SET status = 'completed', executed = 1, finished_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (command_row['id'],)
+        )
+        db.commit()
+
+    return jsonify({
+        "agent_id": agent_id,
+        "command": command_to_send
+    })
+
 @app.route("/servers")
 def server_management():
     current_user = os.getlogin()
