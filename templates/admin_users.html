@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>User Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <a class="navbar-brand font-weight-bold" href="{{ url_for('index') }}">🚀 SSH Control Panel</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="{{ url_for('admin_users') }}">User Management</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('server_management') }}">Server Management</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container py-4">
+        <h2 class="mb-4 text-secondary font-weight-bold">User Management</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-info mt-3" role="alert">
+              {% for message in messages %}
+                {{ message }}
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- Create User -->
+            <div class="col-md-5 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white font-weight-bold">
+                        Create New User
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('admin_users') }}" method="POST">
+                            <input type="hidden" name="action" value="create_user">
+                            <div class="form-group">
+                                <label for="username" class="font-weight-bold text-muted small">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="password" class="font-weight-bold text-muted small">Password</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="role" class="font-weight-bold text-muted small">Role</label>
+                                <select class="form-control" id="role" name="role">
+                                    <option value="user">User (Restricted)</option>
+                                    <option value="admin">Admin (Full Access)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Create User</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users List and Device Assignments -->
+            <div class="col-md-7 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white font-weight-bold">
+                        Users and Allowed Devices
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            {% for user in users_list %}
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <span class="font-weight-bold text-dark">{{ user.username }}</span>
+                                        <span class="badge badge-info ml-2">{{ user.role }}</span>
+                                    </div>
+                                    {% if user.username != 'admin' %}
+                                    <form action="{{ url_for('admin_users') }}" method="POST" onsubmit="return confirm('Delete this user?');" class="d-inline">
+                                        <input type="hidden" name="action" value="delete_user">
+                                        <input type="hidden" name="username" value="{{ user.username }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if user.role == 'admin' %}
+                                    <p class="text-muted small mb-0">Admins have access to all devices.</p>
+                                {% else %}
+                                    <div class="bg-light p-2 rounded">
+                                        <span class="font-weight-bold text-muted small d-block mb-1">Assigned Devices:</span>
+                                        {% set assigned_devices = user_devices_map[user.username] or [] %}
+                                        {% for dev in assigned_devices %}
+                                            <span class="badge badge-secondary mr-1 mb-1">
+                                                {{ dev }}
+                                                <form action="{{ url_for('admin_users') }}" method="POST" class="d-inline ml-1">
+                                                    <input type="hidden" name="action" value="unassign_device">
+                                                    <input type="hidden" name="username" value="{{ user.username }}">
+                                                    <input type="hidden" name="device_id" value="{{ dev }}">
+                                                    <button type="submit" class="close text-white float-none" style="font-size: 14px; outline: none;">&times;</button>
+                                                </form>
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted small">No devices assigned.</span>
+                                        {% endfor %}
+                                        
+                                        <!-- Assign device form -->
+                                        <form action="{{ url_for('admin_users') }}" method="POST" class="form-inline mt-2">
+                                            <input type="hidden" name="action" value="assign_device">
+                                            <input type="hidden" name="username" value="{{ user.username }}">
+                                            <select name="device_id" class="form-control form-control-sm mr-2" required>
+                                                <option value="">-- Assign Device --</option>
+                                                {% for dev in all_devices %}
+                                                    {% if dev.id not in assigned_devices %}
+                                                        <option value="{{ dev.id }}">{{ dev.id }} ({{ dev.hostname }})</option>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </select>
+                                            <button type="submit" class="btn btn-success btn-sm">Assign</button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

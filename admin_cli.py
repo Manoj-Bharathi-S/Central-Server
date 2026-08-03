@@ -4,12 +4,15 @@ import argparse
 import os
 import time
 from discovery import ServerListener
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- CONFIGURATION ---
 # The C2 server URL is now read from an environment variable
 # The C2 server URL is now read from an environment variable
 # C2_SERVER_URL = "http://localhost:5000"
-API_SECRET_KEY = "a_fixed_c2_api_key"
+API_SECRET_KEY = os.getenv("API_SECRET_KEY", "a_fixed_c2_api_key")
 
 # ---------------------
 

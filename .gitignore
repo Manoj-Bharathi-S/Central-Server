@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+env/
+c2_server.db
+agent_id.txt
+.idea/
+.vscode/
+.agents/
+.gemini/
+*.log
+.env
